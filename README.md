@@ -39,7 +39,26 @@ sudo apt-get install ffmpeg
       - `-start_number 0`: Starts the JPEG filenames from `00000.jpg`.
 
 2. **Directory Structure**:
-    - Place the extracted frames in a directory under the [`videos`] directory in the `sam2` repository.
+    - Place the extracted frames in a directory under the [`videos`] directory in the `sam2` repository with an appropiate name (we are using the standard `<date>_<location>_<description>`, for example `20241003_autonomy_park_big_dog`). 
+
+3. **Split images into batches**
+    - If you have a large number of images (which we normally do have ~>300), you can split them into batches using the following command:
+      ```sh
+      python image_utils.py -f split_batches 
+      ```
+    - First make sure the directory and the batch size is set in the `image_utils.py` file.
+
+4. **Labeling the Data**:
+    - Use the [`sam2_video_autolabel.ipynb`] notebook to label the data.
+
+5. **Combining the Batches**:
+    - After labeling the data, you can combine the batches using the following command:
+      ```sh
+      python image_utils.py -f join_batches 
+      ```
+    - First make sure the directory and the batch size is set in the `image_utils.py` file.
+
+6. (for RAITE) **Upload images and labels to Dropbox**:
 
 ### Running the Notebook
 
@@ -49,11 +68,6 @@ sudo apt-get install ffmpeg
         jupyter notebook
         ```
     - Or open it in VSCode with the Python extension installed by following [these instructions](https://code.visualstudio.com/docs/datascience/jupyter-notebooks).
-
-## Additional Information
-
-- **Frame Filenames**: The frames should be named sequentially as `<frame_index>.jpg` (e.g., `00000.jpg`, `00001.jpg`, etc.).
-- **Output Directory**: Ensure that the output directory specified in the [`ffmpeg`]
 
 ## License
 
