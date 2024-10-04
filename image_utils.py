@@ -1,4 +1,6 @@
 import os
+import shutil
+import argparse
 import cv2
 
 def is_image_empty(image_path):
@@ -119,11 +121,56 @@ def split_batches(directory, num_batches):
 
     print(f"Moved images to {num_batches} batch directories")
     print("Number of images per batch:", images_per_batch)
+import shutil
+
+def join_batches(directory):
+    """ Join the images from batch subdirectories back into the main directory.
+        The batch subdirectories are then removed.
+    """
+    if not os.path.exists(directory):
+        print(f"Directory {directory} does not exist.")
+        return
+
+    # Get list of batch subdirectories
+    batch_dirs = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith('batch_')]
+
+    for batch_dir in batch_dirs:
+        batch_directory = os.path.join(directory, batch_dir)
+        
+        # Get list of image files in the batch directory
+        image_files = [f for f in os.listdir(batch_directory) if f.endswith('.jpg')]
+        
+        # Move images to the main directory
+        for image_file in image_files:
+            image_path = os.path.join(batch_directory, image_file)
+            new_path = os.path.join(directory, image_file)
+            os.rename(image_path, new_path)
+        
+        # Remove the batch directory
+        shutil.rmtree(batch_directory)
+        print(f"Removed batch directory: {batch_directory}")
+
+    print("Joined all batch directories into the main directory")
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Process some images.")
+    parser.add_argument('-f', '--function', type=str, required=True, help='Function to execute')
+    return parser.parse_args()
 
 if __name__ == "__main__":
+    args = parse_arguments()
     current_directory = os.getcwd()
-    frames_directory = os.path.join(current_directory, "frames")
-    #clean_and_rename_images(frames_directory)
-    convert_png_to_jpg(frames_directory)
-    #downsample_images(frames_directory, 3)
-    split_batches(frames_directory, 2)
+    frames_directory = os.path.join(current_directory, "videos/20241003_autonomy_park/20241003_autonomy_park_big_dog")
+
+    if args.function == 'clean_and_rename_images':
+        clean_and_rename_images(frames_directory)
+    elif args.function == 'convert_png_to_jpg':
+        convert_png_to_jpg(frames_directory)
+    elif args.function == 'downsample_images':
+        downsample_images(frames_directory, 3)
+    elif args.function == 'split_batches':
+        split_batches(frames_directory, 2)
+    elif args.function == 'join_batches':
+        join_batches(frames_directory)
+    else:
+        print(f"Unknown function: {args.function}")
