@@ -2,6 +2,11 @@
 
 This repository contains utilities for automatically labeling videos by processing them into frames and applying various image processing techniques.
 
+The following image is an example of the output of the utilities in this repository:
+
+![Example Output](images/yolo_bbox_output.png)
+
+
 ## Installation
 
 To use these utilities, you need to have the `sam2` repository cloned in your system. You can clone the repository using the following command:
