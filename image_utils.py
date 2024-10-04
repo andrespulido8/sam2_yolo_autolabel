@@ -121,7 +121,6 @@ def split_batches(directory, num_batches):
 
     print(f"Moved images to {num_batches} batch directories")
     print("Number of images per batch:", images_per_batch)
-import shutil
 
 def join_batches(directory):
     """ Join the images from batch subdirectories back into the main directory.
