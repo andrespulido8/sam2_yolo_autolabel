@@ -2,6 +2,9 @@ import os
 import shutil
 import argparse
 import cv2
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
+
 
 def is_image_empty(image_path):
     """Check if the image is empty (all pixels are zero)."""
@@ -16,8 +19,18 @@ def clean_and_rename_images(directory):
         print(f"Directory {directory} does not exist.")
         return
 
-    # Get list of image files in the directory
-    image_files = sorted([f for f in os.listdir(directory) if f.endswith('.png')])
+    def extract_number(filename):
+        """Extract number from filename, handling various formats."""
+        # Try to find any number in the filename
+        numbers = re.findall(r'\d+', filename)
+        if numbers:
+            # Return the last number found as an integer
+            return int(numbers[-1])
+        return 0
+
+    # Get list of image files in the directory with proper numeric sorting
+    image_files = [f for f in os.listdir(directory) if f.endswith(('.png', '.jpg'))]
+    image_files.sort(key=extract_number)
 
     # Delete empty images
     for image_file in image_files:
@@ -26,16 +39,34 @@ def clean_and_rename_images(directory):
             os.remove(image_path)
             print(f"Deleted empty image: {image_file}")
 
-    # Get list of remaining image files
-    remaining_image_files = sorted([f for f in os.listdir(directory) if f.endswith('.png')])
+    # Get list of remaining image files with proper numeric sorting
+    remaining_image_files = [f for f in os.listdir(directory) if f.endswith(('.png', '.jpg'))]
+    remaining_image_files.sort(key=extract_number)
+
+    # Calculate required number of digits for the new filenames
+    num_digits = len(str(len(remaining_image_files)))
+    format_string = f"%0{max(4, num_digits)}d"  # Use at least 4 digits, more if needed
 
     # Rename remaining images
     for idx, image_file in enumerate(remaining_image_files):
-        new_name = f"{idx:03}.png"
+        end = 'png' if image_file.endswith('png') else 'jpg'
+        new_name = f"{format_string}.{end}" % idx
         old_path = os.path.join(directory, image_file)
         new_path = os.path.join(directory, new_name)
         os.rename(old_path, new_path)
         print(f"Renamed {image_file} to {new_name}")
+
+    print(f"Total images processed: {len(remaining_image_files)}")
+
+def convert_image(image_path):
+    """Convert a single PNG image to JPG format."""
+    image = cv2.imread(image_path)
+    if image is None:
+        print(f"Failed to read image: {image_path}")
+        return None, image_path
+    jpg_image_path = image_path.replace('.png', '.jpg')
+    cv2.imwrite(jpg_image_path, image)
+    return jpg_image_path, image_path
 
 def convert_png_to_jpg(directory):
     """Convert all PNG images in the specified directory to JPG format."""
@@ -43,51 +74,48 @@ def convert_png_to_jpg(directory):
         print(f"Directory {directory} does not exist.")
         return
 
-    # Get list of PNG image files in the directory
     image_files = sorted([f for f in os.listdir(directory) if f.endswith('.png')])
+    image_paths = [os.path.join(directory, image_file) for image_file in image_files]
 
-    for image_file in image_files:
-        image_path = os.path.join(directory, image_file)
-        # Read the image
-        image = cv2.imread(image_path)
-        if image is None:
-            print(f"Failed to read image: {image_file}")
-            continue
-        # Convert the image to JPG format
-        jpg_image_path = os.path.join(directory, image_file.replace('.png', '.jpg'))
-        cv2.imwrite(jpg_image_path, image)
-        # Optionally, remove the original PNG file
-        os.remove(image_path)
+    results = []
+    with ThreadPoolExecutor() as executor:
+        future_to_path = {executor.submit(convert_image, image_path): image_path for image_path in image_paths}
+        for future in as_completed(future_to_path):
+            jpg_image_path, original_image_path = future.result()
+            results.append((jpg_image_path, original_image_path))
+
+    # Remove original PNG files after conversion
+    for jpg_image_path, original_image_path in results:
+        if original_image_path:
+            os.remove(original_image_path)
+
     print(f"Converted {len(image_files)} PNG images to JPG format")
 
 def downsample_images(directory, fraction):
-    """ Reduces the number of images in the directory by 1/fraction.
-        The remaining images are renamed to have consecutive numbers.
+    """Reduces the number of images in the directory by keeping 1/fraction of them.
+       Remaining images are renamed to have consecutive numbers, supporting up to 10,000 images.
     """
     if not os.path.exists(directory):
         print(f"Directory {directory} does not exist.")
         return
 
-    # Get list of image files in the directory
+    # Get list of image files in the directory, sorted to maintain order
     image_files = sorted([f for f in os.listdir(directory) if f.endswith('.jpg')])
 
-    # Delete images
-    for idx, image_file in enumerate(image_files):
-        if idx % fraction != 0:
-            image_path = os.path.join(directory, image_file)
-            os.remove(image_path)
+    orig_num = len(image_files)
+    print(f"Original number of images: {orig_num}")
 
-    # Rename remaining images without previous functions
-    remaining_image_files = sorted([f for f in os.listdir(directory) if f.endswith('.jpg')])
-    for idx, image_file in enumerate(remaining_image_files):
-        new_name = f"{idx:03}.jpg"
-        old_path = os.path.join(directory, image_file)
-        new_path = os.path.join(directory, new_name)
-        os.rename(old_path, new_path)
-        print(f"Renamed {image_file} to {new_name}")
+    # Create a list of images to keep based on the fraction
+    images_to_keep = [image_files[i] for i in range(orig_num) if i % fraction == 0]
 
-    print(f"Deleted images with indices not divisible by {fraction}")
-    print("Number of remaining images:", len(os.listdir(directory)))
+    # Delete all images that are not in the images_to_keep list
+    for image_file in image_files:
+        if image_file not in images_to_keep:
+            os.remove(os.path.join(directory, image_file))
+
+    #clean_and_rename_images(directory)
+
+    print(f"Remaining images after downsampling: {len(images_to_keep)}")
 
 def split_batches(directory, num_batches):
     """ Split the images in the directory into num_batches.
@@ -159,7 +187,7 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
     current_directory = os.getcwd()
-    frames_directory = os.path.join(current_directory, "videos/20241003_autonomy_park/20241003_autonomy_park_big_dog")
+    frames_directory = os.path.join(current_directory, "videos/20241022_RAITE/20241022_RAITE_laser4_drones")
 
     if args.function == 'clean_and_rename_images':
         clean_and_rename_images(frames_directory)
@@ -168,7 +196,7 @@ if __name__ == "__main__":
     elif args.function == 'downsample_images':
         downsample_images(frames_directory, 3)
     elif args.function == 'split_batches':
-        split_batches(frames_directory, 2)
+        split_batches(frames_directory, 3)
     elif args.function == 'join_batches':
         join_batches(frames_directory)
     else:

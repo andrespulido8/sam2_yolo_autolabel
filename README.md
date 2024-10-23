@@ -62,12 +62,16 @@ sudo apt-get install ffmpeg
 
 ### Running the Notebook
 
-**Open the Notebook**:
-    - Open the [`sam2_video_autolabel.ipynb`] with either Jupyter Notebook with 
+**Open the Notebook and run it**:
+Open the [`sam2_video_autolabel.ipynb`] with either Jupyter Notebook with 
         ```sh
         jupyter notebook
         ```
-    - Or open it in VSCode with the Python extension installed by following [these instructions](https://code.visualstudio.com/docs/datascience/jupyter-notebooks).
+Or open it in VSCode with the Python extension installed by following [these instructions](https://code.visualstudio.com/docs/datascience/jupyter-notebooks).
+To not have to change paths to files, I launch `jupyter notebook` on the `sam2` root directory. Then my personal workflow is to copy the localhost link that we get in the terminal
+from the previous command and paste as the kernel for the vscode jupyter notebooks `Select Kernel` button. 
+
+For videos where object are under significant portions of occlusions, it is recommended to delete the images with oclusion and then reindex the name with `image_utils.py/clean_and_rename_images`
 
 ## License
 
